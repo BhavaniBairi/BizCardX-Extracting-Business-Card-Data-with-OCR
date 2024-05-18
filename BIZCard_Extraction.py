@@ -177,8 +177,8 @@ if selected == "Home":
        st.write("")
        st.write("")
        st.write("##### Welcome to the BizCardX: Extracting Business Card Data with OCR project!")
-       st.write("##### This Python-based tool is designed to digitize the scanned Business card image and make their content searchable and editable.")
-       st.write("##### The Extracted data is then stored in PostgreSQL databases for easy access and Modification.")
+       st.write("##### This Python-based tool is designed to digitize the scanned Business card image and store the data in database for easy access and Modification")
+       st.write("##### This tool also uses image processing technology, which helps to improve image quality to enable advanced automation and development of Models")
        
     with col2:
        st.write("")
@@ -199,9 +199,10 @@ if selected == "Home":
     
     with col4:
        st.write("")
-       st.write("##### :orange[Data Extraction:] Utilizes the Optical Character Recognition(OCR) technology which plays crucial role in converting data from Image to text")
+       st.write("##### :orange[Data Extraction:] Utilizes the Optical Character Recognition(OCR) technology, EasyOCR which is flexible and easy to use for data entry automation and image analysis")
+       st.write("##### EasyOCR enables computers to identify and extract text from images and is a Multi-language support, pretrained text detection and identification Model")
        st.write("")            
-       st.write("##### :orange[Streamlit Interface:] Provides a streamlined web interface powered by Streamlit for easy data Extraction, storage, and Modification.")
+       st.write("##### :orange[Streamlit Interface:] Provides a streamlined web interface powered by Streamlit providing options for easy data Extraction, storage, and Modification.")
     
     
 
@@ -229,9 +230,10 @@ if selected == "Upload & Extract":
                 cv2.rectangle(image, tl, br, (0, 255, 0), 2)
                 cv2.putText(image, text, (tl[0], tl[1] - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-            plt.rcParams['figure.figsize'] = (15,15)
-            plt.axis('off')
-            plt.imshow(image)
+            
+            return image
+
+        
        
       #Displaying the uploaded image
        col5, col6 = st.columns((1,1))
@@ -241,12 +243,11 @@ if selected == "Upload & Extract":
         nparr = np.frombuffer(file_bytes, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         st.write("")
-        st.write("##### :orange[You have uploaded the card]")
+        st.write("##### :orange[The Uploaded card]")
         st.write("")
         st.write("")
         st.write("")
-        st.write("")
-        st.image(image,channels='BGR', width=400)
+        st.image(image,channels='BGR', width=500)
 
        
       #Displaying the card with the highlights
@@ -262,18 +263,26 @@ if selected == "Upload & Extract":
                   image = cv2.imread(saved_img)
                   res = reader.readtext(saved_img)
                   st.markdown("##### :orange[Processed Image]")
-                  st.pyplot(image_preview(image,res)) 
+                  processed_image = image_preview(image, res)
+                  plt.figure(figsize=(15, 15))
+                  plt.axis('off')
+                  plt.imshow(processed_image)
+                  st.pyplot()
 
                saved_img = os.getcwd()+ "\\" + "uploaded"+ "\\"+ uploaded.name
                result = reader.readtext(saved_img,detail = 0,paragraph=False)
                Data = data(result)
                df = pd.DataFrame(Data) 
 
+               
+
     if st.button(" :orange[Extract data]"):
           
       st.success("Data Extracted successfully")
+      
       st.write(df)
 
+    
     if st.button(" :orange[Upload to Database]"):
 
       mydb = psycopg2.connect(host="localhost",
@@ -284,27 +293,44 @@ if selected == "Upload & Extract":
                         )
 
       mycursor = mydb.cursor()
-
       
-      sql = '''INSERT INTO bizcard(Name,Designation,Company,Contact,Email,Website,Area,City,State,Pincode,Image)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'''
-      
-      values = (df['Name'].iloc[0],
-                df['Designation'].iloc[0],
-                df['Company'].iloc[0],
-                df['Contact'].iloc[0],
-                df['Email'].iloc[0],
-                df['Website'].iloc[0],
-                df['Area'].iloc[0],
-                df['City'].iloc[0],
-                df['State'].iloc[0],
-                df['Pincode'].iloc[0],
-                df['Image'].iloc[0])
+      Name_insert = df['Name'].iloc[0]
 
-      mycursor.execute(sql, values)
-      mydb.commit()
+      query = '''SELECT Name from bizcard where Name = %s'''
+      mycursor.execute(query, (Name_insert,))
+      existing_name = mycursor.fetchone()
 
-      st.success("#### Uploaded to database successfully!")
+      if len(df) == 2:
+        df1 = df.groupby(['Name','Designation','Company','Email','Website','Area','City','State','Pincode','Image'], as_index=False).agg({'Contact':','.join})
+      else:
+        df1 = df  
+
+      if existing_name:
+            st.error("Information of the given Business card already exists")
+      else:
+            #for index, row in df.iterrows():
+            sql = '''INSERT INTO bizcard(Name,Designation,Company,Contact,Email,Website,Area,City,State,Pincode,Image)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'''
+                
+            
+
+            values = (df1['Name'].iloc[0],
+                        df1['Designation'].iloc[0],
+                        df1['Company'].iloc[0],
+                        df1['Contact'].iloc[0],
+                        df1['Email'].iloc[0],
+                        df1['Website'].iloc[0],
+                        df1['Area'].iloc[0],
+                        df1['City'].iloc[0],
+                        df1['State'].iloc[0],
+                        df1['Pincode'].iloc[0],
+                        df1['Image'].iloc[0])
+            
+
+            mycursor.execute(sql, values)
+            mydb.commit()
+
+            st.success("Uploaded to database successfully!")
        
 if selected == "Modify/ Delete":
     
@@ -324,8 +350,8 @@ if selected == "Modify/ Delete":
     result1 = mycursor.fetchall()
 
     #convert into dataframe using pandas
-    df1=pd.DataFrame(result1, columns=['name','designation','company','contact','email','website','city','area','state','pincode','image'])
-    st.write(df1)
+    df2=pd.DataFrame(result1, columns=['name','designation','company','contact','email','website','city','area','state','pincode','image'])
+    st.write(df2)
 
     if option=='View card':
             left,col1, right = st.columns([2,0.5, 2.5])
@@ -357,7 +383,7 @@ if selected == "Modify/ Delete":
                             # Create a file-like object from the image data
                             nparr = np.frombuffer(image_data, np.uint8)
                             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                            st.image(image, channels="BGR", width=400)
+                            st.image(image, width=400)
       
                         if result is None:
                             st.error("No card is present with the given information")
@@ -402,7 +428,7 @@ if selected == "Modify/ Delete":
             state = st.text_input("State", result[8])
             pincode = st.text_input("Pincode", result[9])
 
-        if st.button(" :orange[Commit changes to DB]"):
+        if st.button(" :orange[Save changes]"):
             # Update the information for the selected business card in the database
             mycursor.execute("""UPDATE bizcard SET name=%s, designation=%s, company=%s, 
                                 contact=%s, email=%s, website=%s, area=%s, city=%s, state=%s, pincode=%s
@@ -417,6 +443,15 @@ if selected == "Modify/ Delete":
             updated_df = pd.DataFrame(mycursor.fetchall(),columns=["Name","Designation","Company","Contact","Email","Website","Area","City","State","Pincode"])
 
             st.write(updated_df)                 
+
+    # Define the username and password
+    ADMIN_USERNAME = "admin"
+    ADMIN_PASSWORD = "password"
+
+    # Authentication function
+    def authenticate(username, password):
+        return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+    
 
     if option=='Delete': 
                 
@@ -437,14 +472,18 @@ if selected == "Modify/ Delete":
 
             st.write("#### Do you want to proceed to delete this card?")
 
-            if st.button(":orange[Yes, Delete Business Card]"):
-                
-                mycursor.execute(f"DELETE FROM bizcard WHERE name='{selected_card}'")
-                mydb.commit()
+            # Display authentication form
+            form = st.form(key='authentication_form')
+            username = form.text_input("Username")
+            password = form.text_input("Password", type="password")
+            submit_button = form.form_submit_button("Authenticate")
 
-                st.success("Business card information deleted from database.")
-
-
-  
-
-    
+            # If form is submitted
+            if submit_button:
+                if authenticate(username, password):
+                    # If authentication is successful, proceed with deletion
+                    mycursor.execute(f"DELETE FROM bizcard WHERE name='{selected_card}'")
+                    mydb.commit()
+                    st.success("Business card information deleted from database.")
+                else:
+                    st.error("Invalid username or password. Deletion aborted.")
