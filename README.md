@@ -60,7 +60,6 @@ streamlit run bizcard.py
 ---------------------------
 
 - Streamlit
-- Streamlit_lottie
 - Python
 - RegEx
 - EasyOCR
